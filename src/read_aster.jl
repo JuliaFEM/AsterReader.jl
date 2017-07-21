@@ -1,8 +1,5 @@
 # This file is a part of JuliaFEM.
-# License is MIT: see https://github.com/JuliaFEM/JuliaFEM.jl/blob/master/LICENSE.md
-
-using HDF5
-using JuliaFEM
+# License is MIT: see https://github.com/JuliaFEM/AsterReader.jl/blob/master/LICENSE
 
 function aster_parse_nodes(section; strip_characters=true)
     nodes = Dict{Any, Vector{Float64}}()
