@@ -5,5 +5,6 @@ using AsterReader
 using Base.Test
 
 @testset "AsterReader.jl" begin
-    @test 1 == 1
+    include("test_read_aster_mesh.jl")
+    include("test_read_aster_results.jl")
 end

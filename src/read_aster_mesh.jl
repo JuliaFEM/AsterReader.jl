@@ -69,7 +69,7 @@ One node set id can have multiple names.
 """
 function get_node_sets(med::MEDFile, mesh_name::String)::Dict{Int64, Vector{String}}
     mesh = get_mesh(med, mesh_name)
-    node_sets = Dict{Int64, Vector{String}}(0 => ["NALL"])
+    node_sets = Dict{Int64, Vector{String}}(0 => ["OTHER"])
     if !haskey(mesh, "NOEUD")
         return node_sets
     end
@@ -160,7 +160,7 @@ Returns
 Dict containing fields "nodes" and "connectivity".
 
 """
-function parse_aster_med_file(fn, mesh_name=nothing)
+function aster_read_mesh(fn, mesh_name=nothing)
     med = MEDFile(fn)
     mesh_names = get_mesh_names(med::MEDFile)
     all_meshes = join(mesh_names, ", ")
@@ -171,6 +171,15 @@ function parse_aster_med_file(fn, mesh_name=nothing)
         mesh_name in mesh_names || error("Mesh $mesh_name not found from mesh file $fn. Available meshes: $all_meshes")
     end
 
+    mesh = Dict{String, Dict}()
+    mesh["nodes"] = Dict{Int64, Vector{Float64}}()
+    mesh["node_sets"] = Dict{String, Vector{Int64}}()
+    mesh["elements"] = Dict{Integer, Vector{Integer}}()
+    mesh["element_types"] = Dict{Integer, Symbol}()
+    mesh["element_sets"] = Dict{String, Vector{Int64}}()
+    mesh["surface_sets"] = Dict{String, Vector{Tuple{Int64, Symbol}}}()
+    mesh["surface_types"] = Dict{String, Symbol}()
+
     debug("Code Aster .med reader info:")
     elsets = get_element_sets(med, mesh_name)
     for (k,v) in elsets
@@ -180,145 +189,26 @@ function parse_aster_med_file(fn, mesh_name=nothing)
     for (k,v) in nsets
         debug("NSET $k => $v")
     end
-    nodes = get_nodes(med, nsets, mesh_name)
-    conn = get_connectivity(med, elsets, mesh_name)
-    result = Dict("nodes" => nodes, "connectivity" => conn)
-    result["nodes"] = nodes
-    result["connectivity"] = conn
-    return result
-end
-
-# some glues about ordering, this is still a mystery..
-# http://onelab.info/pipermail/gmsh/2008/003850.html
-# http://caelinux.org/wiki/index.php/Proj:UNVConvert
-
-#global const med_connectivity = Dict{Symbol, Vector{Int}}(
-#    :Tet4 => [3, 2, 1, 4],
-#    :Hex8 => [4, 8, 7, 3, 1, 5, 6, 2],  # ..?
-#    :Tet10 => [3, 2, 1, 4, 6, 5, 7, 10, 9, 8])
-
-global const med_connectivity = Dict{Symbol, Vector{Int}}(
-    :Tet4   => [4,3,1,2],
-    :Tet10  => [4,3,1,2,10,7,8,9,6,5],
-    :Pyr5   => [1,4,3,2,5],
-    :Wedge6 => [4,5,6,1,2,3],
-    :Hex8   => [4,8,7,3,1,5,6,2],
-    :Hex20  => [4,8,7,3,1,5,6,2,20,15,19,11,12,16,14,10,17,13,18,9],
-    :Hex27  => [4,8,7,3,1,5,6,2,20,15,19,11,12,16,14,10,17,13,18,9,24,25,26,23,21,22,27])
-
-# element names in CA -> element names in JuliaFEM
-global const mapping = Dict(
-
-    :PO1 => :Poi1,
-
-    :SE2 => :Seg2,
-    :SE3 => :Seg3,
-    :SE4 => :Seg4,
-
-    :TR3 => :Tri3,
-    :TR6 => :Tri6,
-    :TR7 => :Tri7,
-
-    :QU4 => :Quad4,
-    :QU8 => :Quad8,
-    :QU9 => :Quad9,
-
-    :TE4 => :Tet4,
-    :T10 => :Tet10,
-
-    :PE6 => :Wedge6,
-    :P15 => :Wedge15,
-    :P18 => :Wedge18,
-
-    :HE8 => :Hex8,
-    :H20 => :Hex20,
-    :H27 => :Hex27,
-
-    :PY5 => :Pyr5,
-    :P13 => :Pyr13,
-
-    )
-
-""" Read code aster mesh and return Mesh. """
-function aster_read_mesh(fn, mesh_name=nothing; reorder_element_connectivity=true)
-    result = parse_aster_med_file(fn, mesh_name)
-    mesh = Mesh()
-    for (nid, (nsets, ncoords)) in result["nodes"]
-        add_node!(mesh, nid, ncoords)
-        for nset in nsets
-            add_node_to_node_set!(mesh, Symbol(nset), nid)
+    for (nid, (nset_, coords)) in get_nodes(med, nsets, mesh_name)
+        mesh["nodes"][nid] = coords
+        for nset in nset_
+            if !haskey(mesh["node_sets"], nset)
+                mesh["node_sets"][nset] = []
+            end
+            push!(mesh["node_sets"][nset], nid)
         end
     end
-    for (elid, (eltype, elsets, elcon)) in result["connectivity"]
-        haskey(mapping, eltype) || error("Code Aster .med reader: element type $eltype not found from mapping")
-        add_element!(mesh, elid, mapping[eltype], elcon)
-        for elset in elsets
-            add_element_to_element_set!(mesh, Symbol(elset), elid)
+    for (elid, (eltyp, elset_, elcon)) in get_connectivity(med, elsets, mesh_name)
+        mesh["elements"][elid] = elcon
+        mesh["element_types"][elid] = eltyp
+        for elset in elset_
+            if !haskey(mesh["element_sets"], elset)
+                mesh["element_sets"][elset] = []
+            end
+            push!(mesh["element_sets"][elset], elid)
         end
-    end
-    if reorder_element_connectivity
-        reorder_element_connectivity!(mesh, med_connectivity)
     end
     return mesh
 end
 
-""" Code Aster result file (.rmed). """
-type RMEDFile
-    data :: Dict
-end
-
-function RMEDFile(fn::String)
-    return RMEDFile(h5read(fn, "/"))
-end
-
-""" Return nodes from result med file. """
-function aster_read_nodes(rmed::RMEDFile)
-    increments = keys(rmed.data["ENS_MAA"]["MAIL"])
-    @assert length(increments) == 1
-    increment = first(increments)
-    nodes = rmed.data["ENS_MAA"]["MAIL"][increment]["NOE"]
-    node_names = nodes["NOM"]
-    node_coords = nodes["COO"]
-    nnodes = length(node_names)
-    dim = round(Int, length(node_coords)/nnodes)
-    node_coords = reshape(node_coords, nnodes, dim)'
-    stripper(node_name) = strip(ascii(unsafe_string(pointer(convert(Vector{UInt8}, node_name)))))
-    node_names = map(stripper, node_names)
-    # INFO: quite safe assumption is that id is in node name, i.e. N1 => 1, N123 => 123
-    node_id(node_name) = parse(matchall(r"\d+", node_name)[1])
-    node_ids = map(node_id, node_names)
-    nodes = Dict(j => node_coords[:,j] for j in node_ids)
-    return nodes
-end
-
-""" Read nodal field from rmed file. """
-function aster_read_data(rmed::RMEDFile, field_name; field_type=:NODE,
-                         info_fields=true, node_ids=nothing)
-
-    if contains(field_name, "ELGA")
-        field_type = :GAUSS
-    end
-
-    if node_ids == nothing
-        nodes = aster_read_nodes(rmed)
-        node_ids = sort(collect(keys(nodes)))
-    end
-
-    if info_fields
-        field_names = keys(rmed.data["CHA"])
-        all_fields = join(field_names, ", ")
-        info("results: $all_fields")
-    end
-
-    chdata = rmed.data["CHA"]["RESU____$field_name"]
-    @assert length(chdata) == 1
-    increment = chdata[first(keys(chdata))]
-    if field_type == :NODE
-        data = increment["NOE"]["MED_NO_PROFILE_INTERNAL"]["CO"]
-        results = Dict(j => data[j] for j in node_ids)
-    else
-        error("Unable to read result of type $field_type: not implemented")
-    end
-    return results
-end
 
