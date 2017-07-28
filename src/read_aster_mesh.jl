@@ -172,12 +172,12 @@ function aster_read_mesh(fn, mesh_name=nothing)
     end
 
     mesh = Dict{String, Dict}()
-    mesh["nodes"] = Dict{Int64, Vector{Float64}}()
-    mesh["node_sets"] = Dict{String, Vector{Int64}}()
-    mesh["elements"] = Dict{Integer, Vector{Integer}}()
-    mesh["element_types"] = Dict{Integer, Symbol}()
-    mesh["element_sets"] = Dict{String, Vector{Int64}}()
-    mesh["surface_sets"] = Dict{String, Vector{Tuple{Int64, Symbol}}}()
+    mesh["nodes"] = Dict{Int, Vector{Float64}}()
+    mesh["node_sets"] = Dict{String, Vector{Int}}()
+    mesh["elements"] = Dict{Int, Vector{Int}}()
+    mesh["element_types"] = Dict{Int, Symbol}()
+    mesh["element_sets"] = Dict{String, Vector{Int}}()
+    mesh["surface_sets"] = Dict{String, Vector{Tuple{Int, Symbol}}}()
     mesh["surface_types"] = Dict{String, Symbol}()
 
     debug("Code Aster .med reader info:")
