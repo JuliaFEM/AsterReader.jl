@@ -2,7 +2,7 @@
 # License is MIT: see https://github.com/JuliaFEM/AsterReader.jl/blob/master/LICENSE
 
 using Base.Test
-using AsterReader: aster_parse_nodes, aster_read_mesh
+using AsterReader: aster_parse_nodes, aster_read_mesh, MEDFile, get_element_sets
 
 datadir = first(splitext(basename(@__FILE__)))
 
@@ -44,4 +44,19 @@ end
         @test haskey(mesh["node_sets"], nset)
         @test length(mesh["node_sets"][nset]) == 1
     end
+end
+
+@testset "test read element sets from med file, issue #111 at JuliaFEM.jl" begin
+    meshfile = joinpath(datadir, "hexmeshOverlappingGroups.med")
+    med = MEDFile(meshfile)
+    element_sets = get_element_sets(med, "Mesh_1")
+    @test element_sets[-10] == ["halfhex", "mosthex"]
+    @test element_sets[-11] == ["halfhex"]
+end
+
+@testset "test read overlapping ets, issue #111 at JuliaFEM.jl" begin
+    mesh_file = joinpath(datadir, "hexmeshOverlappingGroups.med")
+    mesh = aster_read_mesh(mesh_file, "Mesh_1")
+    @test length(mesh["element_sets"]["mosthex"]) == 273
+    @test length(mesh["element_sets"]["halfhex"]) == 147
 end
