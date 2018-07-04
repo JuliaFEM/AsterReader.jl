@@ -180,15 +180,8 @@ function aster_read_mesh(fn, mesh_name=nothing)
     mesh["surface_sets"] = Dict{String, Vector{Tuple{Int, Symbol}}}()
     mesh["surface_types"] = Dict{String, Symbol}()
 
-    debug("Code Aster .med reader info:")
     elsets = get_element_sets(med, mesh_name)
-    for (k,v) in elsets
-        debug("ELSET $k => $v")
-    end
     nsets = get_node_sets(med, mesh_name)
-    for (k,v) in nsets
-        debug("NSET $k => $v")
-    end
     for (nid, (nset_, coords)) in get_nodes(med, nsets, mesh_name)
         mesh["nodes"][nid] = coords
         for nset in nset_
