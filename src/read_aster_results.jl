@@ -2,7 +2,7 @@
 # License is MIT: see https://github.com/JuliaFEM/AsterReader.jl/blob/master/LICENSE
 
 """ Code Aster result file (.rmed). """
-type RMEDFile
+mutable struct RMEDFile
     data :: Dict
 end
 

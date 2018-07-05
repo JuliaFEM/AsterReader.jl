@@ -32,7 +32,7 @@ end
 
 
 """ Code Aster binary file (.med). """
-type MEDFile
+mutable struct MEDFile
     data :: Dict
 end
 
