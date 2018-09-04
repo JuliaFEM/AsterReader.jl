@@ -23,9 +23,7 @@ function aster_read_nodes(rmed::RMEDFile)
     node_coords = reshape(node_coords, nnodes, dim)'
     stripper(node_name) = strip(ascii(unsafe_string(pointer(convert(Vector{UInt8}, node_name)))))
     node_names = map(stripper, node_names)
-    # INFO: quite safe assumption is that id is in node name, i.e. N1 => 1, N123 => 123
-    node_id(node_name) = parse(matchall(r"\d+", node_name)[1])
-    node_ids = map(node_id, node_names)
+    node_ids = map(parse_node_id, node_names)
     nodes = Dict(j => node_coords[:,j] for j in node_ids)
     return nodes
 end
@@ -34,7 +32,7 @@ end
 function aster_read_data(rmed::RMEDFile, field_name; field_type=:NODE,
                          info_fields=true, node_ids=nothing)
 
-    if contains(field_name, "ELGA")
+    if occursin("ELGA", field_name)
         field_type = :GAUSS
     end
 
@@ -46,7 +44,7 @@ function aster_read_data(rmed::RMEDFile, field_name; field_type=:NODE,
     if info_fields
         field_names = keys(rmed.data["CHA"])
         all_fields = join(field_names, ", ")
-        info("results: $all_fields")
+        @info("results: $all_fields")
     end
 
     chdata = rmed.data["CHA"]["RESU____$field_name"]
@@ -60,4 +58,3 @@ function aster_read_data(rmed::RMEDFile, field_name; field_type=:NODE,
     end
     return results
 end
-

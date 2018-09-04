@@ -5,7 +5,7 @@ function aster_parse_nodes(section; strip_characters=true)
     nodes = Dict{Any, Vector{Float64}}()
     has_started = false
     for line in split(section, '\n')
-        m = matchall(r"[\w.-]+", line)
+        m = collect((string(m.match) for m in eachmatch(r"[\w.-]+", line)))
         if (length(m) != 1) && (!has_started)
             continue
         end
@@ -18,13 +18,13 @@ function aster_parse_nodes(section; strip_characters=true)
                 break
             end
         end
+        to(T, x) = map(x -> parse(T, x), x)
         if length(m) == 4
-            nid = m[1]
             if strip_characters
-                nid = matchall(r"\d", nid)
-                nid = parse(Int, nid[1])
+                nodes[parse_node_id(m[1])] = to(Float64, m[2:end])
+            else
+                nodes[nid] = to(Float64, m[2:end])
             end
-            nodes[nid] = float(m[2:end])
         end
     end
     return nodes
@@ -203,5 +203,3 @@ function aster_read_mesh(fn, mesh_name=nothing)
     end
     return mesh
 end
-
-
