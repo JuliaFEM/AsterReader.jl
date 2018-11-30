@@ -6,9 +6,6 @@ function aster_parse_nodes(section; strip_characters=true)
     has_started = false
     for line in split(section, '\n')
         m = collect((string(m.match) for m in eachmatch(r"[\w.-]+", line)))
-        if (length(m) != 1) && (!has_started)
-            continue
-        end
         if length(m) == 1
             if (m[1] == "COOR_2D") || (m[1] == "COOR_3D")
                 has_started = true
@@ -17,6 +14,9 @@ function aster_parse_nodes(section; strip_characters=true)
             if m[1] == "FINSF"
                 break
             end
+        end
+        if !has_started # we have not found COOR_2D or COOR_3D yet.
+            continue
         end
         to(T, x) = map(x -> parse(T, x), x)
         if length(m) == 4
@@ -51,10 +51,10 @@ end
 
 function get_mesh(med::MEDFile, mesh_name::String)
     if !haskey(med.data["FAS"], mesh_name)
-        warn("Mesh $mesh_name not found from med file.")
+        @warn("Mesh $mesh_name not found from med file.")
         meshes = get_mesh_names(med)
         all_meshes = join(meshes, ", ")
-        warn("Available meshes: $all_meshes")
+        @warn("Available meshes: $all_meshes")
         error("Mesh $mesh_name not found.")
     end
     return med.data["FAS"][mesh_name]
@@ -80,10 +80,15 @@ function get_node_sets(med::MEDFile, mesh_name::String)::Dict{Int64, Vector{Stri
     return node_sets
 end
 
-""" Return element sets from med file.
+"""
+    get_element_sets(med, mesh_name)
 
-Notes
------
+Return element sets from med file. Return type is a dictionary, where the key is
+the element set id number (integer) and value is a vector of strings, containing
+human-readable name for element set.
+
+# Notes
+
 One element set id can have multiple names.
 
 """
@@ -146,23 +151,24 @@ function get_connectivity(med::MEDFile, elsets::Dict{Int64, Vector{String}}, mes
     return d
 end
 
-""" Parse code aster .med file.
+"""
+    aster_read_mesh(filename, mesh_name=nothing)
 
-Paramters
----------
-fn
-    file name to parse
-mesh_name :: optional
-    mesh name, if several meshes in one file
+Parse code aster .med file and return mesh data in a dictionary.
 
-Returns
--------
-Dict containing fields "nodes" and "connectivity".
+Dictionary contains additional dictionaries `nodes`, `node_sets`, `elements`,
+`element_sets`, `element_types`, `surface_sets` and `surface_types`.
+
+If mesh file contains several meshes, one must provide the mesh name as
+additional argument or expcetion will be thrown.
 
 """
-function aster_read_mesh(fn, mesh_name=nothing)
-    med = MEDFile(fn)
-    mesh_names = get_mesh_names(med::MEDFile)
+function aster_read_mesh(filename::String, mesh_name=nothing)
+    aster_read_mesh_(MEDFile(filename), mesh_name)
+end
+
+function aster_read_mesh_(med::MEDFile, mesh_name=nothing)
+    mesh_names = get_mesh_names(med)
     all_meshes = join(mesh_names, ", ")
     if mesh_name == nothing
         length(mesh_names) == 1 || error("several meshes found from med, pick one: $all_meshes")
