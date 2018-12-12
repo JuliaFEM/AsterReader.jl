@@ -29,6 +29,23 @@ datadir = first(splitext(basename(@__FILE__)))
     @test length(nodes) == 8
 end
 
+@testset "read mesh med file (mesh not found)" begin
+    med = AsterReader.MEDFile(joinpath(datadir, "quad4.med"))
+    @test_throws ErrorException AsterReader.get_mesh(med, "notfound")
+end
+
+@testset "read element sets (element sets not found)" begin
+    med = AsterReader.MEDFile(joinpath(datadir, "quad4.med"))
+    delete!(med.data["FAS"]["BLOCK"], "ELEME")
+    @test isempty(AsterReader.get_element_sets(med, "BLOCK"))
+end
+
+@testset "read med file with several mesh files" begin
+    med = AsterReader.MEDFile(joinpath(datadir, "quad4.med"))
+    med.data["FAS"]["new_mesh"] = med.data["FAS"]["BLOCK"]
+   @test_throws ErrorException AsterReader.aster_read_mesh_(med)
+end
+
 @testset "read mesh med file" begin
     meshfile = joinpath(datadir, "quad4.med")
     mesh = aster_read_mesh(meshfile)
