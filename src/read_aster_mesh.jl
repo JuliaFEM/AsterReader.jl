@@ -98,9 +98,19 @@ function get_element_sets(med::MEDFile, mesh_name::String)::Dict{Int64, Vector{S
     if !haskey(mesh, "ELEME")
         return element_sets
     end
-    for (k, v) in mesh["ELEME"]
-        elset_id = parse(Int, split(k, '_')[2])
-        element_sets[elset_id] = collect(to_ascii(d) for d in v["GRO"]["NOM"])
+    elset_keys = sort(collect(keys(mesh["ELEME"])))
+    for (i, k) in enumerate(elset_keys)
+        v = mesh["ELEME"][k]
+        if startswith(k, "FAM") # exported from Salome
+            elset_id = parse(Int, split(k, '_')[2])
+        else # exported from Gmsh
+            elset_id = -i
+        end
+        if !isempty(v)
+            element_sets[elset_id] = map(strip, collect(to_ascii(d) for d in v["GRO"]["NOM"]))
+        else
+            element_sets[elset_id] = [""]
+        end
     end
     return element_sets
 end
@@ -110,9 +120,9 @@ function get_nodes(med::MEDFile, nsets::Dict{Int, Vector{String}}, mesh_name::St
     @assert length(increments) == 1
     increment = first(increments)
     nodes = med.data["ENS_MAA"][mesh_name][increment]["NOE"]
-    node_ids = nodes["NUM"]
     nset_ids = nodes["FAM"]
-    nnodes = length(node_ids)
+    nnodes = length(nset_ids)
+    node_ids = get(nodes, "NUM", collect(1:nnodes))
     node_coords = nodes["COO"]
     dim = round(Int, length(node_coords)/nnodes)
     node_coords = reshape(node_coords, nnodes, dim)'
@@ -136,8 +146,8 @@ function get_connectivity(med::MEDFile, elsets::Dict{Int64, Vector{String}}, mes
     for eltype in keys(all_elements)
         elements = all_elements[eltype]
         elset_ids = elements["FAM"]
-        element_ids = elements["NUM"]
-        nelements = length(element_ids)
+        nelements = length(elset_ids)
+        element_ids = get(elements, "NUM", collect(1:nelements))
         element_connectivity = elements["NOD"]
         element_dim = round(Int, length(element_connectivity)/nelements)
         element_connectivity = reshape(element_connectivity, nelements, element_dim)'
