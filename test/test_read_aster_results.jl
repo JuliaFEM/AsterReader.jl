@@ -1,7 +1,7 @@
 # This file is a part of JuliaFEM.
 # License is MIT: see https://github.com/JuliaFEM/AsterReader.jl/blob/master/LICENSE
 
-using FEMBase, AsterReader, Test
+using AsterReader, Test
 using AsterReader: RMEDFile, aster_read_data
 
 datadir = first(splitext(basename(@__FILE__)))

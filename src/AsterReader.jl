@@ -3,7 +3,7 @@
 
 module AsterReader
 
-using FEMBase, HDF5, LinearAlgebra, SparseArrays
+using HDF5
 
 """
     parse_node_id(node_name)
