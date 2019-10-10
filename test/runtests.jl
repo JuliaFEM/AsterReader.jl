@@ -9,6 +9,7 @@ include(joinpath("..", "docs", "make.jl"))
     include("test_read_aster_mesh.jl")
     include("test_read_aster_results.jl")
     include("test_read_gmsh_med.jl")
+    include("test_read_file_not_found.jl")
 end
 
 include(joinpath("..", "docs", "deploy.jl"))

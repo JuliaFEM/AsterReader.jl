@@ -174,6 +174,7 @@ additional argument or expcetion will be thrown.
 
 """
 function aster_read_mesh(filename::String, mesh_name=nothing)
+    isfile(filename) || error("Cannot read mesh file $filename: file not found.")
     aster_read_mesh_(MEDFile(filename), mesh_name)
 end
 
